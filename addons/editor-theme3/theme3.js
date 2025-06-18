@@ -2,8 +2,6 @@
 // There is absolutely no hope that this will run on a scratch.mit.edu environment
 
 import { removeAlpha, multiply, brighten, alphaBlend, textColor } from "../../libraries/common/cs/text-color.esm.js";
-import { BLOCKS_CUSTOM, BLOCKS_MAP, defaultBlockColors } from "../../../lib/themes";
-import { detectTheme } from "../../../lib/themes/themePersistance";
 
 const extensionsCategory = {
   categoryId: null,
@@ -268,11 +266,11 @@ export default async function ({ addon, console, msg }) {
     if (!addon.self.disabled) {
       // Fix color of the text in the dropdown
       this.textElement_.style.setProperty("fill", fieldTextColor(this), "important");
-  
+
       // Fix dropdown arrow color
       this.arrow_.remove();
       this.arrow_ = makeDropdownArrow(fieldTextColor(this));
-  
+
       // Redraw arrow
       const text = this.text_;
       this.text_ = null;
@@ -314,72 +312,54 @@ export default async function ({ addon, console, msg }) {
   };
 
   const apply = () => {
-    const blockColors = JSON.parse(JSON.stringify(defaultBlockColors));
+    const vm = addon.tab.traps.vm;
+
+    textModeSetting = addon.settings.get("text");
 
     for (const category of categories) {
+      // CSS variables are used for compatibility with other addons
+      const prefix = `--editorTheme3-${category.colorId}`;
       const primary = addon.settings.get(category.settingId);
-      blockColors[category.colorId] = {
+      for (const [name, value] of Object.entries({
         primary: primaryColor(primary),
         secondary: secondaryColor(primary),
         tertiary: tertiaryColor(primary),
-        quaternary: quaternaryColor(primary),
-      };
-    }
-    blockColors.text = uncoloredTextColor();
-    blockColors.textField = addon.settings.get("input-color");
-    blockColors.textFieldText = textFieldText();
-    if (textMode() === "colorOnWhite") blockColors.fieldShadow = "rgba(0, 0, 0, 0.15)";
-
-    const extensions = {
-      music: {
-        blockIconURI: addon.self.getResource(`${iconPath()}/extensions/music.svg`)
-      },
-      pen: {
-        blockIconURI: addon.self.getResource(`${iconPath()}/extensions/pen.svg`)
-      },
-      text2speech: {
-        blockIconURI: addon.self.getResource(`${iconPath()}/extensions/text2speech.svg`)
-      },
-      translate: {
-        blockIconURI: addon.self.getResource(`${iconPath()}/extensions/translate.${useBlackIcons() ? 'svg' : 'png'}`)
-      },
-      videoSensing: {
-        blockIconURI: addon.self.getResource(`${iconPath()}/extensions/videoSensing.svg`)
+        field: fieldBackground(primary),
+      })) {
+        document.documentElement.style.setProperty(`${prefix}-${name}`, value);
       }
-    };
 
-    BLOCKS_MAP[BLOCKS_CUSTOM] = {
-      blocksMediaFolder: 'blocks-media/default',
-      colors: blockColors,
-      extensions: extensions,
-      customExtensionColors: {
-        primary: primaryColor,
-        secondary: secondaryColor,
-        tertiary: tertiaryColor,
-        quaternary: quaternaryColor,
-        categoryIconBackground,
-        categoryIconBorder
-      },
-      useForStage: false
-    };
-
-    const newTheme = addon.tab.redux.state.scratchGui.theme.theme.set('blocks', BLOCKS_CUSTOM);
-    addon.tab.redux.dispatch({
-      type: 'scratch-gui/theme/SET_THEME',
-      theme: newTheme
+      // Update Blockly.Colours
+      if (!Blockly.Colours[category.colorId]) continue;
+      Blockly.Colours[category.colorId].primary = primaryColor(primary);
+      Blockly.Colours[category.colorId].secondary = secondaryColor(primary);
+      Blockly.Colours[category.colorId].tertiary = tertiaryColor(primary);
+    }
+    const saPrimary = addon.settings.get(saCategory.settingId);
+    addon.tab.setCustomBlockColor({
+      color: primaryColor(saPrimary),
+      secondaryColor: secondaryColor(saPrimary),
+      tertiaryColor: tertiaryColor(saPrimary),
     });
+    Blockly.Colours.textField = otherColor("input-color", "textField");
+    if (uncoloredTextColor() === "#575e75") Blockly.Colours.fieldShadow = "rgba(0, 0, 0, 0.15)";
+    else Blockly.Colours.fieldShadow = originalColors.fieldShadow;
+
+    const workspace = Blockly.getMainWorkspace();
+    const flyout = workspace.getFlyout();
+    const toolbox = workspace.getToolbox();
+
+    // Reload toolbox
+    if (vm.editingTarget) {
+      vm.emitWorkspaceUpdate();
+    }
+    const flyoutWorkspace = flyout.getWorkspace();
+    Blockly.Xml.clearWorkspaceAndLoadFromXml(Blockly.Xml.workspaceToDom(flyoutWorkspace), flyoutWorkspace);
+    toolbox.populate_(workspace.options.languageTree);
+    workspace.toolboxRefreshEnabled_ = true;
   };
 
-  const disable = () => {
-    const defaultTheme = detectTheme().blocks;
-    const newTheme = addon.tab.redux.state.scratchGui.theme.theme.set('blocks', defaultTheme);
-    addon.tab.redux.dispatch({
-      type: 'scratch-gui/theme/SET_THEME',
-      theme: newTheme
-    });
-  };
-
-  addon.self.addEventListener("disabled", disable);
+  addon.self.addEventListener("disabled", apply);
   addon.self.addEventListener("reenabled", apply);
   addon.settings.addEventListener("change", apply);
   apply();
