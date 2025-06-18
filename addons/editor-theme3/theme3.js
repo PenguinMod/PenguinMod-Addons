@@ -77,29 +77,34 @@ const arrowShadowColor = "#231f20";
 
 export default async function ({ addon, console, msg }) {
   const Blockly = await addon.tab.traps.getBlockly();
+  const originalColors = JSON.parse(JSON.stringify(Blockly.Colours));
 
-  const textMode = () => addon.settings.get("text");
+  const textMode = () => (addon.self.disabled ? "white" : addon.settings.get("text"));
   const isColoredTextMode = () => textMode() === "colorOnWhite" || textMode() === "colorOnBlack";
 
   const primaryColor = (primary) => {
+    if (addon.self.disabled) return originalColors[category.colorId].primary;
     if (textMode() === "colorOnWhite") return "#ffffff";
     if (textMode() === "colorOnBlack") return "#282828";
     return primary;
   };
 
   const secondaryColor = (primary) => {
+    if (addon.self.disabled) return originalColors[category.colorId].secondary;
     if (isColoredTextMode()) return alphaBlend(primaryColor(primary), multiply(primary, { a: 0.15 }));
     if (textMode() === "black") return brighten(primary, { r: 0.6, g: 0.6, b: 0.6 });
     return multiply(primary, { r: 0.9, g: 0.9, b: 0.9 });
   };
 
   const tertiaryColor = (primary) => {
+    if (addon.self.disabled) return originalColors[category.colorId].tertiary;
     if (isColoredTextMode()) return primary;
     if (textMode() === "black") return multiply(primary, { r: 0.65, g: 0.65, b: 0.65 });
     return multiply(primary, { r: 0.8, g: 0.8, b: 0.8 });
   };
 
   const quaternaryColor = (primary) => {
+    if (addon.self.disabled) return originalColors[category.colorId].quaternary;
     if (isColoredTextMode()) return alphaBlend(primaryColor(primary), multiply(primary, { a: 0.25 }));
     if (textMode() === "black") return brighten(primaryColor(primary), { r: 0.4, g: 0.4, b: 0.4 });
     return tertiaryColor(primary);
@@ -125,7 +130,7 @@ export default async function ({ addon, console, msg }) {
   };
 
   const uncoloredTextColor = () => {
-    if (textMode() === 'white' || textMode() === 'colorOnBlack') return '#ffffff';
+    if (addon.self.disabled || textMode() === 'white' || textMode() === 'colorOnBlack') return '#ffffff';
     if (textMode() === 'black' || textMode() === 'colorOnWhite') return '#000000';
     throw new Error(`unknown text mode: ${textMode()}`);
   };
@@ -136,10 +141,15 @@ export default async function ({ addon, console, msg }) {
   };
 
   const fieldTextColor = (field) => {
-    if (textMode() === "white") return "#ffffff";
+    if (addon.self.disabled || textMode() === "white") return "#ffffff";
     if (textMode() === "black") return "#000000";
     if (field) return field.sourceBlock_.getColourTertiary();
     return "#000000";
+  };
+
+  const otherColor = (settingId, colorId) => {
+    if (addon.self.disabled) return originalColors[colorId];
+    return addon.settings.get(settingId);
   };
 
   const categoryIconBackground = (primary) => isColoredTextMode() ? quaternaryColor(primary) : primaryColor(primary);
