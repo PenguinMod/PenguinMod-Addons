@@ -314,8 +314,6 @@ export default async function ({ addon, console, msg }) {
   const apply = () => {
     const vm = addon.tab.traps.vm;
 
-    textModeSetting = addon.settings.get("text");
-
     for (const category of categories) {
       // CSS variables are used for compatibility with other addons
       const prefix = `--editorTheme3-${category.colorId}`;
